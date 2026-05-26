@@ -1,40 +1,41 @@
 # offline_sync_data
 
-Motor de sincronizacao offline-first para Flutter. Operacoes feitas sem acesso à internet
-sao persistidas em SQLite e enviadas automaticamente ao servidor quando o dispositivo
-volta a ter conectividade.
+**English** · [Português](README.md)
 
-## Recursos
+Offline-first synchronization engine for Flutter. Operations performed without
+network access are persisted in SQLite and sent to the server automatically when
+connectivity returns.
 
-- Fila local persistente com `sqflite`, compativel com Android e iOS.
-- Documentos locais persistentes para leitura offline e reabertura do app.
-- Deteccao de internet real com `internet_connection_checker_plus`.
-- Stream de conectividade com sincronizacao ao voltar online e verificacao
-  periodica para cobrir transicoes nao notificadas pela plataforma.
-- API desacoplada por `SyncApiAdapter`, com adapter REST opcional baseado em `dio`.
-- Estados observaveis por item (`pending`, `syncing`, `synced`, `failed`),
-  fila global, conectividade online/offline e varias entidades no mesmo engine.
-- Retry configuravel com backoff linear (`retryCount * 2` segundos por padrao).
-- Resolucao de conflitos local-wins, remote-wins e last-write-wins.
-- Ponto de entrada pronto para integracao opcional com `workmanager`.
+## Features
 
-O engine persiste tanto as **operacoes de sincronizacao** quanto documentos
-locais JSON. Assim, o aplicativo pode continuar lendo seus dados depois de
-reiniciar sem conexao.
+- Persistent local queue with `sqflite`, compatible with Android and iOS.
+- Persistent local documents for offline reads and app restarts.
+- Real internet detection with `internet_connection_checker_plus`.
+- Connectivity stream with sync on reconnect and periodic checks for platform
+  transitions that are not always delivered promptly.
+- Decoupled API via `SyncApiAdapter`, with an optional REST adapter based on `dio`.
+- Observable states per item (`pending`, `syncing`, `synced`, `failed`), global
+  queue, online/offline connectivity, and multiple entities in one engine.
+- Configurable retry with linear backoff (`retryCount * 2` seconds by default).
+- Conflict resolution: local-wins, remote-wins, and last-write-wins.
+- Ready entry point for optional `workmanager` integration.
 
-## Arquitetura
+The engine persists both **sync operations** and local JSON documents, so the app
+can keep reading data after a restart with no connection.
 
-![Arquitetura offline-first do offline_sync_data](doc/images/arquitetura.png)
+## Architecture
 
-O fluxo e local-first: `save()` persiste o documento e a operacao na fila
-SQLite antes de qualquer chamada remota. Quando o stream confirma internet
-disponivel, `OfflineSyncManager` processa a fila atraves do `SyncApiAdapter`;
-com `DioSyncApiAdapter`, as operacoes chegam a API REST ou ao `json-server` do
-exemplo. Sem internet, os itens permanecem locais com estado `pending`.
+![Offline-first architecture for offline_sync_data](doc/images/arquitetura.png)
 
-## Instalacao
+The flow is local-first: `save()` persists the document and queue entry in SQLite
+before any remote call. When the stream confirms internet is available,
+`OfflineSyncManager` processes the queue through `SyncApiAdapter`; with
+`DioSyncApiAdapter`, operations reach a REST API or the example `json-server`.
+Without internet, items stay local with `pending` status.
 
-Adicione ao `pubspec.yaml` do aplicativo:
+## Installation
+
+Add to your app `pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -42,17 +43,17 @@ dependencies:
   dio: ^5.8.0
 ```
 
-Para desenvolvimento local:
+For local development:
 
 ```yaml
 dependencies:
   offline_sync_data:
-    path: ../offline_sync_engine # nome da pasta do repositório
+    path: ../offline_sync_data # your repository folder name
 ```
 
-## Inicio rapido
+## Quick start
 
-Implemente o contrato da sua API ou utilize `DioSyncApiAdapter`:
+Implement your API contract or use `DioSyncApiAdapter`:
 
 ```dart
 final adapter = DioSyncApiAdapter(
@@ -69,7 +70,7 @@ await offlineSync.initialize();
 offlineSync.syncManager.startAutoSync();
 ```
 
-Salve uma acao local antes de depender da rede:
+Save locally before relying on the network:
 
 ```dart
 await offlineSync.save(
@@ -80,61 +81,58 @@ await offlineSync.save(
 );
 ```
 
-O mesmo metodo aceita `SyncOperation.update` e `SyncOperation.delete`.
-Uma criacao ainda pendente e nunca tentada seguida de alteracao vira uma unica
-criacao com o payload novo; seguida de remocao, ela e retirada da fila. Depois
-de uma tentativa, remocoes sao sincronizadas explicitamente, pois a resposta
-do servidor pode ter falhado apos aceitar a criacao.
+The same method accepts `SyncOperation.update` and `SyncOperation.delete`.
+A pending create that was never attempted, followed by an update, becomes a
+single create with the new payload; followed by a delete, it is removed from the
+queue. After an attempt, deletes are synced explicitly because the server may
+have accepted the create before the response was lost.
 
-Leia os registros locais, inclusive offline:
+Read local records, including offline:
 
 ```dart
 final records = await offlineSync.getRecords('tasks');
 final tasks = records.map((record) => Task.fromJson(record.data)).toList();
 
 offlineSync.watchRecords('tasks').listen((records) {
-  // Reconstrua a interface a partir dos documentos locais persistidos.
+  // Rebuild the UI from persisted local documents.
 });
 ```
 
-`create` e `update` gravam o documento local junto com a fila, em uma mesma
-transacao. `delete` remove o documento local imediatamente e preserva a
-operacao pendente para remocao na API.
+`create` and `update` write the local document and queue entry in one
+transaction. `delete` removes the local document immediately and keeps a pending
+operation for API deletion.
 
-Sincronize manualmente quando quiser forcar o envio:
+Force a sync manually:
 
 ```dart
 await offlineSync.syncManager.syncNow();
 ```
 
-## Estado da sincronizacao, conectividade e dados pendentes
+## Sync state, connectivity, and pending data
 
-O engine separa dois conceitos:
+The engine separates two concepts:
 
-| Conceito            | O que representa                                                  | Como observar                   |
-| ------------------- | ----------------------------------------------------------------- | ------------------------------- |
-| **Documento local** | Dado da aplicacao persistido para leitura offline (`LocalRecord`) | `getRecords`, `watchRecords`    |
-| **Item da fila**    | Operacao ainda nao reconciliada com o servidor (`SyncQueueItem`)  | `watchQueue`, `watchItemStatus` |
+| Concept | What it represents | How to observe |
+| ------- | ------------------ | -------------- |
+| **Local document** | App data persisted for offline reads (`LocalRecord`) | `getRecords`, `watchRecords` |
+| **Queue item** | Operation not yet reconciled with the server (`SyncQueueItem`) | `watchQueue`, `watchItemStatus` |
 
-Um registro pode existir localmente **sem** entrada na fila: isso significa que
-ja foi sincronizado (ou nunca precisou de envio). Enquanto houver item na fila
-com status diferente de `synced`, o dado ainda esta pendente de reconciliacao
-com a API.
+A record can exist locally **without** a queue entry: it is already synced (or
+never needed sending). While a queue item exists with a status other than
+`synced`, data is still pending reconciliation with the API.
 
-### Estados de cada operacao (`SyncStatus`)
+### Per-operation states (`SyncStatus`)
 
-Cada item na fila passa por um destes estados:
+| State | Typical UI meaning |
+| ----- | ------------------ |
+| `pending` | Waiting for network or the next sync run |
+| `syncing` | Upload in progress |
+| `synced` | Accepted by the API this run (kept in queue for observation) |
+| `failed` | Last attempt failed; `lastError` has the reason; auto-retry when online |
 
-| Estado    | Significado tipico na UI                                                              |
-| --------- | ------------------------------------------------------------------------------------- |
-| `pending` | Aguardando rede ou proxima rodada de sync                                             |
-| `syncing` | Envio em andamento para o servidor                                                    |
-| `synced`  | Aceito pela API nesta rodada (historico mantido na fila)                              |
-| `failed`  | Ultima tentativa falhou; `lastError` traz o motivo; retry automatico ao voltar online |
+### Online vs offline
 
-### Saber se o app esta online ou offline
-
-Chame `startAutoSync()` na inicializacao (como no inicio rapido). Depois use
+Call `startAutoSync()` on startup (as in quick start), then use
 `watchConnectivity()`:
 
 ```dart
@@ -142,45 +140,43 @@ await offlineSync.syncManager.startAutoSync();
 
 offlineSync.watchConnectivity().listen((online) {
   if (online) {
-    // Internet alcancavel: auto-sync tenta enviar a fila
+    // Reachable internet: auto-sync sends the queue
   } else {
-    // Offline: save() continua gravando localmente
+    // Offline: save() still writes locally
   }
 });
 ```
 
-Em `StreamBuilder`, `snapshot.data` fica `null` ate o primeiro evento chegar.
-Trate isso na UI (por exemplo: "Verificando conexao..."), como no `example/`.
+In `StreamBuilder`, `snapshot.data` is `null` until the first event (e.g. show
+"Checking connection…"), as in `example/`.
 
-O monitor confirma **internet real** (requisicao HTTP), nao apenas Wi-Fi ligado.
-Com `DioSyncApiAdapter` em desenvolvimento local, configure um endpoint da sua
-API em `InternetConnectionMonitor` (veja secao Retry e conflitos).
+The monitor checks **real internet** (HTTP), not just Wi‑Fi. For local
+`DioSyncApiAdapter` development, point `InternetConnectionMonitor` at your API
+(see Retry and conflicts).
 
-### Ver a fila inteira e o status de um registro
+### Full queue and per-record status
 
 ```dart
-// Todos os itens da fila (todas as entidades)
 offlineSync.watchQueue().listen((List<SyncQueueItem> items) {
-  final pendentes = items.where((i) => i.status != SyncStatus.synced);
-  final sincronizados = items.where((i) => i.status == SyncStatus.synced);
+  final pending = items.where((i) => i.status != SyncStatus.synced);
+  final synced = items.where((i) => i.status == SyncStatus.synced);
 });
 
-// Apenas um ID (opcionalmente filtrado por entidade)
 offlineSync.watchItemStatus(task.id, entity: 'tasks').listen((SyncStatus status) {
   switch (status) {
     case SyncStatus.pending:
     case SyncStatus.syncing:
     case SyncStatus.failed:
-      // ainda pendente
+      // still pending
     case SyncStatus.synced:
-      // reconciliado com o servidor
+      // reconciled with server
   }
 });
 ```
 
-### Distinguir dados pendentes e sincronizados na lista
+### Pending vs synced in a list
 
-A forma recomendada e combinar **documentos locais** com a **fila**:
+Combine **local documents** with the **queue**:
 
 ```dart
 StreamBuilder<List<LocalRecord>>(
@@ -201,8 +197,8 @@ StreamBuilder<List<LocalRecord>>(
           final isSynced = queueItem == null ||
               queueItem.status == SyncStatus.synced;
 
-          // isSynced == true  -> exibir como "Sincronizada"
-          // isSynced == false -> exibir pending/syncing/failed
+          // isSynced == true  -> show as "Synced"
+          // isSynced == false -> show pending/syncing/failed
         }
         return const SizedBox.shrink();
       },
@@ -211,44 +207,40 @@ StreamBuilder<List<LocalRecord>>(
 );
 ```
 
-Resumo pratico:
+Summary:
 
-- **Sincronizado**: existe em `watchRecords`, e nao ha item na fila **ou** o
-  item correspondente esta com `SyncStatus.synced`.
-- **Pendente**: ha item na fila com `pending`, `syncing` ou `failed`.
-- **Contadores**: filtre `watchQueue()` ou cruze registros locais com a fila
-  como no exemplo (`N pendentes | M sincronizadas`).
+- **Synced**: present in `watchRecords`, and no queue item **or** item is `synced`.
+- **Pending**: queue item with `pending`, `syncing`, or `failed`.
+- **Counters**: filter `watchQueue()` or merge records with the queue (see example).
 
-Consulta pontual sem stream:
+One-off reads:
 
 ```dart
 final records = await offlineSync.getRecords('tasks');
 final one = await offlineSync.getRecord('tasks', taskId);
 ```
 
-Para saber o status de um ID sem reconstruir a UI, prefira `watchItemStatus`
-ou filtre o ultimo snapshot de `watchQueue()` por `entityName` e `id`.
+Prefer `watchItemStatus` or filter the latest `watchQueue()` snapshot by
+`entityName` and `id`.
 
-### Limpar historico da fila
+### Clear queue history
 
-Itens `synced` permanecem na fila para permitir observar sucesso. Remova quando
-nao precisar mais desse historico:
+`synced` items stay in the queue so you can observe success:
 
 ```dart
 await offlineSync.clearSynced();
 ```
 
-## Varias colecoes (tipos de dados)
+## Multiple collections (data types)
 
-Use o parametro `entity` para distinguir cada tipo de dado. Um unico
-`OfflineSyncEngine` e um unico `SyncApiAdapter` atendem todas as colecoes; cada
-par `(entity, id)` tem chave propria no SQLite (`entityName::id`).
+Use the `entity` parameter for each data type. One `OfflineSyncEngine` and one
+`SyncApiAdapter` handle every collection; each `(entity, id)` pair has its own
+SQLite key (`entityName::id`).
 
-### Mesma API, rotas diferentes
+### Same API, different routes
 
-Cenario comum: um servidor (`https://api.example.com`) expoe recursos em paths
-distintos. Configure um `Dio` com `baseUrl` e grave cada tipo com `entity`
-diferente:
+One server (`https://api.example.com`) with different paths. Set `baseUrl` on
+`Dio` and use a different `entity` per type:
 
 ```dart
 final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
@@ -257,7 +249,6 @@ final offlineSync = OfflineSyncEngine(
   apiAdapter: DioSyncApiAdapter(dio: dio),
 );
 
-// Grava localmente e enfileira — cada save() escolhe a rota pelo entity
 await offlineSync.save(
   entity: 'tasks',
   id: task.id,
@@ -280,20 +271,19 @@ await offlineSync.save(
 );
 ```
 
-Com o `DioSyncApiAdapter` padrao, o envio na sincronizacao fica assim:
+Default `DioSyncApiAdapter` routing:
 
-| `entity`    | create            | update / delete                  | fetch remoto (conflitos) |
-| ----------- | ----------------- | -------------------------------- | ------------------------ |
-| `tasks`     | `POST /tasks`     | `PUT` ou `DELETE /tasks/:id`     | `GET /tasks/:id`         |
-| `notes`     | `POST /notes`     | `PUT` ou `DELETE /notes/:id`     | `GET /notes/:id`         |
-| `customers` | `POST /customers` | `PUT` ou `DELETE /customers/:id` | `GET /customers/:id`     |
+| `entity` | create | update / delete | remote fetch (conflicts) |
+| -------- | ------ | --------------- | ------------------------ |
+| `tasks` | `POST /tasks` | `PUT` or `DELETE /tasks/:id` | `GET /tasks/:id` |
+| `notes` | `POST /notes` | `PUT` or `DELETE /notes/:id` | `GET /notes/:id` |
+| `customers` | `POST /customers` | `PUT` or `DELETE /customers/:id` | `GET /customers/:id` |
 
-Todas as chamadas usam o mesmo host (`baseUrl` do Dio); apenas o path muda.
+All calls share the same host (`Dio` `baseUrl`); only the path changes.
 
-### Rotas que nao seguem `/<entity>/<id>`
+### Routes that are not `/<entity>/<id>`
 
-Quando o backend usa convencoes diferentes no **mesmo host**, mapeie cada
-`entity` em `resourcePathBuilder`:
+Map each `entity` in `resourcePathBuilder`:
 
 ```dart
 final adapter = DioSyncApiAdapter(
@@ -312,17 +302,12 @@ final adapter = DioSyncApiAdapter(
 final offlineSync = OfflineSyncEngine(apiAdapter: adapter);
 ```
 
-O engine continua a passar `entity` e `id` em cada operacao; o adapter traduz
-para o path correto da sua API.
+### Query-string routes (`tasks?id=2`)
 
-### Rotas com query string (`tasks?id=2`)
-
-Se o backend identifica o recurso na query em vez do path (`GET /tasks?id=2`,
-`PUT /tasks?id=2`), devolva o path **com a query** no `resourcePathBuilder`.
-O `DioSyncApiAdapter` usa essa string diretamente no pedido:
+Return the path **including the query** from `resourcePathBuilder`:
 
 ```dart
-String tasksPath(String entity, [String? id]) {
+String pathWithQuery(String entity, [String? id]) {
   final base = '/${Uri.encodeComponent(entity)}';
   if (id == null) return base;
   return '$base?id=${Uri.encodeQueryComponent(id)}';
@@ -331,7 +316,7 @@ String tasksPath(String entity, [String? id]) {
 final adapter = DioSyncApiAdapter(
   dio: dio,
   resourcePathBuilder: (entity, [id]) => switch (entity) {
-    'tasks' || 'notes' => tasksPath(entity, id),
+    'tasks' || 'notes' => pathWithQuery(entity, id),
     _ => id == null
         ? '/${Uri.encodeComponent(entity)}'
         : '/${Uri.encodeComponent(entity)}/${Uri.encodeComponent(id)}',
@@ -339,71 +324,51 @@ final adapter = DioSyncApiAdapter(
 );
 ```
 
-Com `entity: 'tasks'` e `id: '2'`, a sincronizacao chama:
+With `entity: 'tasks'` and `id: '2'`:
 
-| Operacao | Metodo e URL (relativa ao `baseUrl`)       |
-| -------- | ------------------------------------------ |
-| create   | `POST /tasks` (body JSON; sem `id` na URL) |
-| update   | `PUT /tasks?id=2`                          |
-| delete   | `DELETE /tasks?id=2`                       |
-| fetch    | `GET /tasks?id=2`                          |
+| Operation | Method and URL (relative to `baseUrl`) |
+| --------- | -------------------------------------- |
+| create | `POST /tasks` (JSON body; no `id` in URL) |
+| update | `PUT /tasks?id=2` |
+| delete | `DELETE /tasks?id=2` |
+| fetch | `GET /tasks?id=2` |
 
-O `id` do registo continua a ser o segundo argumento de `save()` e o valor
-gravado no SQLite; apenas a URL remota muda de formato. Para varios tipos no
-mesmo host, reutilize o helper ou defina um `switch` por `entity`.
+The `id` in `save()` and SQLite is unchanged; only the remote URL format differs.
 
-Se a API exigir outros parametros (`tasks?id=2&tenant=acme`), inclua-os na
-string devolvida pelo builder ou implemente um `SyncApiAdapter` customizado com
-`dio.get(path, queryParameters: {...})`.
-
-### Leitura local e fila por tipo
-
-Documentos locais sao lidos **por colecao**:
+### Local reads and queue per type
 
 ```dart
 final tasks = await offlineSync.getRecords('tasks');
 final notes = await offlineSync.getRecords('notes');
 
-offlineSync.watchRecords('tasks').listen((_) { /* UI de tarefas */ });
-offlineSync.watchRecords('notes').listen((_) { /* UI de notas */ });
+offlineSync.watchRecords('tasks').listen((_) { /* tasks UI */ });
+offlineSync.watchRecords('notes').listen((_) { /* notes UI */ });
 ```
 
-A fila de sincronizacao e **global** (todos os tipos misturados). Filtre na UI
-ou em logica de negocio:
+The sync queue is **global**. Filter in UI or business logic:
 
 ```dart
 offlineSync.watchQueue().listen((items) {
   final taskQueue = items.where((i) => i.entityName == 'tasks');
   final noteQueue = items.where((i) => i.entityName == 'notes');
 });
-
-offlineSync.watchItemStatus(note.id, entity: 'notes').listen((status) {
-  // pending, syncing, synced ou failed apenas desta nota
-});
 ```
 
-### Ordem de envio e armazenamento
+### Send order and storage
 
-- **Armazenamento:** `tasks` e `notes` nao colidem; a chave interna e
-  `entityName::id` (o mesmo `id` em entidades diferentes e permitido).
-- **Sync:** numa rodada, a fila e processada por ordem de `createdAt`, um item
-  de cada vez, sem prioridade por tipo. Se criou uma task e depois uma note, a
-  task e enviada primeiro.
-- **Conectividade:** o monitor costuma verificar um endpoint (ex. `GET /tasks`).
-  Enquanto esse host responder, toda a fila tenta sincronizar, incluindo
-  `notes` e `customers` no mesmo servidor.
+- **Storage:** `tasks` and `notes` do not collide (`entityName::id`).
+- **Sync:** one item at a time, ordered by `createdAt`, no type priority.
+- **Connectivity:** one probe endpoint (e.g. `GET /tasks`) usually covers the
+  whole queue on the same host.
 
-### APIs em hosts diferentes
+### APIs on different hosts
 
-Se cada tipo apontar para um **dominio distinto** (`api-tasks.com` e
-`api-notes.com`), implemente um `SyncApiAdapter` customizado que escolha URL ou
-cliente HTTP conforme o `entity` em `create`, `update`, `delete` e
-`fetchRemote`. O engine nao exige um adapter por tipo — apenas que o adapter
-roteie pelo nome da entidade.
+Implement a custom `SyncApiAdapter` that picks URL or HTTP client per `entity`
+in `create`, `update`, `delete`, and `fetchRemote`.
 
-## Adapter customizado
+## Custom adapter
 
-O package nao determina URLs nem formato do backend:
+The package does not fix URLs or backend shape:
 
 ```dart
 class TasksApiAdapter implements SyncApiAdapter {
@@ -412,7 +377,6 @@ class TasksApiAdapter implements SyncApiAdapter {
     String entity,
     Map<String, dynamic> data,
   ) async {
-    // POST na API da aplicacao.
     throw UnimplementedError();
   }
 
@@ -432,24 +396,21 @@ class TasksApiAdapter implements SyncApiAdapter {
 }
 ```
 
-`DioSyncApiAdapter` utiliza por padrao `POST /<entity>`, `PUT /<entity>/<id>`,
-`DELETE /<entity>/<id>` e `GET /<entity>/<id>`. Passe
-`resourcePathBuilder` para adequar as rotas.
+`DioSyncApiAdapter` defaults to `POST /<entity>`, `PUT /<entity>/<id>`,
+`DELETE /<entity>/<id>`, and `GET /<entity>/<id>`. Use `resourcePathBuilder` to
+customize paths.
 
-## Retry e conflitos
+## Retry and conflicts
 
-Uma falha mantem a operacao com estado `failed`, grava `lastError` e aumenta
-`retryCount` como contador historico. `maxRetries` limita as tentativas de cada
-rodada; um item `failed` continua elegivel quando a rede volta ou ao chamar
-`syncNow()` novamente. O backoff reinicia a cada rodada para que uma
-recuperacao nao aguarde um atraso acumulado antigo:
+Failures set `failed`, store `lastError`, and increment `retryCount`. `maxRetries`
+limits attempts per run; `failed` items retry when the network returns or on
+`syncNow()`. Backoff restarts each run:
 
 ```text
 delay = attemptInCurrentRun * retryBaseDelay
 ```
 
-Com o valor padrao de dois segundos, as esperas sao 2 s, 4 s e assim por
-diante. Configure:
+Default two-second base → 2 s, 4 s, … Configure:
 
 ```dart
 const OfflineSyncOptions(
@@ -459,23 +420,16 @@ const OfflineSyncOptions(
 );
 ```
 
-`startAutoSync()` escuta `InternetConnectionMonitor.onConnectivityChanged`
-(baseado em `InternetConnection().onStatusChange` do pacote
-[`internet_connection_checker_plus`](https://pub.dev/packages/internet_connection_checker_plus)).
-Por padrao, tambem confirma o estado a cada intervalo de
-`connectivityCheckInterval` (500 ms por padrao nas opcoes). Use
-`connectivityCheckInterval: null` para depender apenas do stream do monitor.
-Quando a internet volta, qualquer espera de retry em curso e interrompida e o
-envio e tentado imediatamente.
+`startAutoSync()` listens to `InternetConnectionMonitor.onConnectivityChanged`
+([`internet_connection_checker_plus`](https://pub.dev/packages/internet_connection_checker_plus))
+and optionally polls on `connectivityCheckInterval`. Set it to `null` to rely
+only on the monitor stream. When internet returns, retry waits are interrupted
+and sync runs immediately.
 
-Antes de cada chamada remota (`fetchRemote`, `create`, `update` ou `delete`),
-o manager confirma que ainda existe conectividade. Se a ligacao cair durante
-uma requisicao, assim que o monitor indicar offline a operacao volta para
-`pending`, sem consumir uma tentativa; ela sera enviada quando a rede retornar.
+Before each remote call, connectivity is rechecked. If the link drops mid-request,
+the item returns to `pending` without consuming an attempt.
 
-O monitor verifica alcance HTTP real (nao apenas Wi-Fi). Endpoints padrao
-incluem `one.one.one.one`, `icanhazip.com` e `captive.apple.com`. Para fazer o
-estado online refletir a disponibilidade do backend, defina o endpoint da API:
+Default probes hit global endpoints. To reflect **your API** availability:
 
 ```dart
 OfflineSyncEngine.withDependencies(
@@ -497,35 +451,30 @@ OfflineSyncEngine.withDependencies(
 );
 ```
 
-Operacoes encontradas como `syncing` ao iniciar uma nova rodada sao
-recuperadas automaticamente, cobrindo encerramento do app durante um envio.
-Em operacoes `create`, o adapter consulta o ID remoto antes de repetir o envio;
-se ele ja existir, a carga local e reconciliada com `update`, evitando um
-segundo `POST` apos uma resposta perdida.
+`syncing` items at the start of a run are recovered (app killed mid-upload). On
+`create`, `fetchRemote` runs before retry to avoid duplicate `POST` after a lost
+response.
 
-Para updates, ao fornecer um `ConflictResolver`, o manager busca o registro
-remoto antes do envio e resolve o payload:
+For updates with a `ConflictResolver`, the remote record is fetched first:
 
 ```dart
 const LocalWinsConflictResolver();
 const RemoteWinsConflictResolver();
-const LastWriteWinsConflictResolver(); // compara o campo updatedAt
+const LastWriteWinsConflictResolver(); // compares updatedAt
 ```
 
 ## Background sync
 
-O package nao adiciona uma dependencia obrigatoria de execucao em background.
-Integre a biblioteca escolhida pelo app, como `workmanager`, e invoque:
+No mandatory background dependency. Use `workmanager` (or similar) and call:
 
 ```dart
 final scheduler = BackgroundSyncScheduler(offlineSync.syncManager);
 await scheduler.execute();
 ```
 
-O callback em background deve inicializar o Flutter e criar/inicializar o
-engine antes dessa chamada, conforme as regras do plugin utilizado.
+The background callback must initialize Flutter and the engine first.
 
-## Estrutura
+## Project layout
 
 ```text
 lib/
@@ -543,11 +492,11 @@ example/
 test/
 ```
 
-O app em `example/lib/` demonstra `watchConnectivity()`, `watchRecords` +
-`watchQueue()` e varias entidades documentadas acima. A API local fica em
-`example/json-server` (`npm install` e `npm start`).
+See `example/lib/` for `watchConnectivity()`, `watchRecords` + `watchQueue()`,
+and multiple entities. Local API: `example/json-server` (`npm install` &&
+`npm start`).
 
-## Autor
+## Author
 
 **Celestino Lopes**
 
@@ -557,7 +506,7 @@ O app em `example/lib/` demonstra `watchConnectivity()`, `watchRecords` +
       src="https://github.com/celestinolopes.png?size=100"
       width="100"
       height="100"
-      alt="Celestino Lopes no GitHub"
+      alt="Celestino Lopes on GitHub"
     />
   </a>
   &nbsp;&nbsp;
