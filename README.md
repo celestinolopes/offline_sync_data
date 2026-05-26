@@ -547,14 +547,6 @@ O app em `example/lib/` demonstra `watchConnectivity()`, `watchRecords` +
 `watchQueue()` e varias entidades documentadas acima. A API local fica em
 `example/json-server` (`npm install` e `npm start`).
 
-## Notas de plataforma
-
-O monitor usa [`internet_connection_checker_plus`](https://pub.dev/packages/internet_connection_checker_plus)
-para confirmar internet real (HEAD em endpoints globais ou em URLs customizadas),
-nao apenas interface Wi-Fi. Indisponibilidade apenas da sua API continua coberta
-pelo retry da fila. Em Flutter, garanta permissoes de rede nas plataformas alvo;
-para Web, os endpoints precisam ser compativeis com CORS.
-
 ## Autor
 
 **Celestino Lopes**
