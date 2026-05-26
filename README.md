@@ -24,7 +24,7 @@ reiniciar sem conexao.
 
 ## Arquitetura
 
-![Arquitetura offline-first do offline_sync_data](docs/images/offline_sync_data_architecture.png)
+![Arquitetura offline-first do offline_sync_data](docs/images/arquitetura.png)
 
 O fluxo e local-first: `save()` persiste o documento e a operacao na fila
 SQLite antes de qualquer chamada remota. Quando o stream confirma internet
@@ -341,12 +341,12 @@ final adapter = DioSyncApiAdapter(
 
 Com `entity: 'tasks'` e `id: '2'`, a sincronizacao chama:
 
-| Operacao | Metodo e URL (relativa ao `baseUrl`) |
-|----------|--------------------------------------|
+| Operacao | Metodo e URL (relativa ao `baseUrl`)       |
+| -------- | ------------------------------------------ |
 | create   | `POST /tasks` (body JSON; sem `id` na URL) |
-| update   | `PUT /tasks?id=2` |
-| delete   | `DELETE /tasks?id=2` |
-| fetch    | `GET /tasks?id=2` |
+| update   | `PUT /tasks?id=2`                          |
+| delete   | `DELETE /tasks?id=2`                       |
+| fetch    | `GET /tasks?id=2`                          |
 
 O `id` do registo continua a ser o segundo argumento de `save()` e o valor
 gravado no SQLite; apenas a URL remota muda de formato. Para varios tipos no
