@@ -1,9 +1,9 @@
 name: offline_sync_data
 description: Offline-first synchronization with a persistent SQLite queue for Flutter apps.
 version: 0.1.0
-homepage: https://github.com/celestinolpes/offline_sync_data
-repository: https://github.com/celestinolpes/offline_sync_data
-issue_tracker: https://github.com/celestinolpes/offline_sync_data/issues
+homepage: https://github.com/celestinolopes/offline_sync_data
+repository: https://github.com/celestinolopes/offline_sync_data
+issue_tracker: https://github.com/celestinolopes/offline_sync_data/issues
 topics:
   - offline-first
   - synchronization

@@ -21,12 +21,12 @@ class ConnectivityBanner extends StatelessWidget {
             ),
           true => (
               Icons.cloud_done,
-              'Online — fila enviada automaticamente',
+              'Online: fila enviada automaticamente',
               Colors.green,
             ),
           false => (
               Icons.cloud_off,
-              'Offline — alterações ficam no SQLite',
+              'Offline: alterações ficam no SQLite',
               Colors.orange,
             ),
         };
