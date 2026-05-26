@@ -24,7 +24,7 @@ reiniciar sem conexao.
 
 ## Arquitetura
 
-![Arquitetura offline-first do offline_sync_data](docs/images/arquitetura.png)
+![Arquitetura offline-first do offline_sync_data](doc/images/arquitetura.png)
 
 O fluxo e local-first: `save()` persiste o documento e a operacao na fila
 SQLite antes de qualquer chamada remota. Quando o stream confirma internet
