@@ -1,0 +1,22 @@
+name: offline_sync_data_example
+description: Task example for offline_sync_data.
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  dio: ^5.8.0+1
+  flutter:
+    sdk: flutter
+  internet_connection_checker_plus: ^3.0.0
+  offline_sync_data:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

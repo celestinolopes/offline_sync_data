@@ -1,0 +1,12 @@
+{
+  "name": "offline-sync-engine-mock-api",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local JSON Server REST API for the offline_sync_data example.",
+  "scripts": {
+    "start": "sh ./start.sh"
+  },
+  "devDependencies": {
+    "json-server": "1.0.0-beta.3"
+  }
+}
